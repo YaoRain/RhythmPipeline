@@ -16,7 +16,7 @@ MonoBehaviour:
   useGPUInstancing: 0
   useSRPBatching: 0
   shadowSettings:
-    maxDistance: 100
+    maxDistance: 50
     directional:
-      atlasSize: 1024
+      atlasSize: 2048
   postProcessingSettings: {fileID: 11400000, guid: 97157eb3326021e45afdab26778df139, type: 2}

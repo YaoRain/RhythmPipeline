@@ -25,6 +25,7 @@ namespace RhythmPipeline.Runtime
             PrepareForSceneWindow();
 #endif
             //if (!Cull()) return;
+            SetRenderState();
             DrawOpaque();
             DrawSkybox();
             DrawTransparent();
@@ -46,6 +47,13 @@ namespace RhythmPipeline.Runtime
             else return false;
         }
 
+        private void SetRenderState()
+        {
+            var cmd = CommandBufferPool.Get(_camera.name);
+            cmd.BeginSample("Set Render State");
+            Shader.SetGlobalTexture(Shadows._varianceShadowMapping, Shadows._vsmRT);
+            cmd.EndSample("Set Render State");
+        }
         private void DrawOpaque()
         {
             var cmd = CommandBufferPool.Get(_camera.name);
@@ -115,7 +123,7 @@ namespace RhythmPipeline.Runtime
             cmd.GetTemporaryRT(_cameraFrameBuffer, _camera.pixelWidth, _camera.pixelHeight, 32, FilterMode.Bilinear, RenderTextureFormat.Default);
             cmd.SetRenderTarget(_cameraFrameBuffer, RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store);
             cmd.ClearRenderTarget(flags <= CameraClearFlags.Depth, 
-                flags == CameraClearFlags.Color, 
+                flags <= CameraClearFlags.Color, 
                 flags == CameraClearFlags.Color? _camera.backgroundColor.linear:Color.clear);
             cmd.EndSample("Set Framebuffer");
             ExecuteTempBuffer(cmd);

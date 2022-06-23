@@ -12,4 +12,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 545a00ec202949243acfbb7d6aa8e694, type: 3}
   m_Name: PostProcessingSettings
   m_EditorClassIdentifier: 
-  postFeatures: e80300000200000064000000
+  postFeatures: e803000064000000

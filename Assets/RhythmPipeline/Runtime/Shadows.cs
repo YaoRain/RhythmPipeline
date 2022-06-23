@@ -43,6 +43,8 @@ public class Shadows
             cmd.name = "Shadows";
             cmd.BeginSample("Render Shadow Map");
             RenderDirectionalShadows();
+            RenderMainLightShadows(ShadowedDirectionalLights[0], 1024);
+            
             cmd.EndSample("Render Shadow Map");
             ExecuteTempBuffer(cmd);
         }
@@ -134,10 +136,69 @@ public class Shadows
         cmd.SetGlobalDepthBias(90000, 0);
         cmd.EndSample("Draw Shadow Map");
         ExecuteTempBuffer(cmd);
-        _context.DrawShadows(ref shadowSettings);
+        //_context.DrawShadows(ref shadowSettings);
         cmd = CommandBufferPool.Get("Shadows");
         cmd.SetGlobalDepthBias(0, 0);
         ExecuteTempBuffer(cmd);
+    }
+
+    // TODO : 实现主光源VSM
+    public static int _varianceShadowMapping = Shader.PropertyToID("_VarianceShadowMapping");
+    private Shader _shader = Shader.Find("RhythmRP/Rhythm_VSM_Cast");
+    private Material _mat;
+    private const string cmdName = "VSMCast";
+    public static RenderTexture _vsmRT;
+    void RenderMainLightShadows(ShadowedDirectionalLight mainLight, int shadowMapSize)
+    {
+        if (_mat == null) _mat = new Material(_shader);
+        if (_vsmRT == null)
+        {
+            _vsmRT = new RenderTexture(shadowMapSize, shadowMapSize, 32, RenderTextureFormat.RGFloat);
+            if (!_vsmRT.IsCreated())
+            {
+                _vsmRT.useMipMap = true;
+                _vsmRT.filterMode = FilterMode.Bilinear;
+                _vsmRT.anisoLevel = 9;
+                _vsmRT.Create();
+                //texture.Release();
+            }
+        }
+        
+        var cmd = CommandBufferPool.Get(cmdName);
+        cmd.BeginSample("Clear VSM");
+        cmd.SetRenderTarget(_vsmRT, RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store);
+        cmd.ClearRenderTarget(true, true, Color.clear);
+        cmd.EndSample("Clear VSM");
+        ExecuteTempBuffer(cmd);
+
+        cmd = CommandBufferPool.Get(cmdName);
+        cmd.BeginSample(bufferName);
+        // 获取所有需要投射阴影的物体
+        var allRenderers = RhythmPipeline.PipelineManager.RhythmPipeline.AllRenderers;
+        for (int i = 0; i < allRenderers.Length; i++)
+        {
+            if (allRenderers[i].isVisible&&allRenderers[i].shadowCastingMode == ShadowCastingMode.On)
+            {
+                cmd.DrawMesh(allRenderers[i].GetComponent<MeshFilter>().sharedMesh, allRenderers[i].GetComponent<Transform>().localToWorldMatrix, _mat);
+                //Debug.Log("第"+i+"个"+allRenderers[i].GetComponent<MeshFilter>().mesh.name);
+            }
+        }
+        //cmd.Blit(sourceTexId, _toneMappingDstTex, _mat, 0);
+        cmd.EndSample(bufferName);
+        ExecuteTempBuffer(cmd);
+        
+        
+        // TODO : 实现对VSM的Blur
+        /*
+        cmd = CommandBufferPool.Get(cmdName);
+        cmd.BeginSample("blur vsm");
+        cmd.SetRenderTarget(_vsmRT, RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store);
+        cmd.ClearRenderTarget(true, true, Color.clear);
+        
+        
+        cmd.EndSample("blur vsm");
+        ExecuteTempBuffer(cmd);
+        */
     }
     
     void RenderReflectiveShadowMaps(int lightIndex, int tileSize)

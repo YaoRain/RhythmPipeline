@@ -93,10 +93,56 @@ float GetVisibilityFromShadow(Surface surface, Light light)
     return visibility;
 }
 
+TEXTURE2D(_VarianceShadowMapping);
+SAMPLER(sampler_VarianceShadowMapping);
+// TODO : 补全VSM实现
+float3 GetVSM_UV_And_Depth(float3 positionWS, Light light)
+{
+    float4 positionSS = mul(light.directionalShadowMatrix, float4(positionWS, 1.0));
+    float2 uv = positionSS.xy;
+    float depth = positionSS.z / positionSS.w;
+    return float3(uv, depth);
+}
+float2 GetPixelLightDepth(float3 positionWS)
+{
+    
+}
+
+float GetVisibilityFromVSM(Surface surface, Light light)
+{
+    float visibility;
+    float3 samplePoint = surface.positionWS;
+    float3 vsmUV_AndDepth = GetVSM_UV_And_Depth(surface.positionWS, light);
+    // 采样Mipmap得到均值
+
+    //float2 vsmDepth = SAMPLE_TEXTURE2D(_VarianceShadowMapping, sampler_VarianceShadowMapping, vsmUV_AndDepth.xy);
+
+    int mipLevel = 2;
+    float2 vsmDepthMip = SAMPLE_TEXTURE2D_LOD(_VarianceShadowMapping, sampler_VarianceShadowMapping,vsmUV_AndDepth.xy, mipLevel);
+    //float vsmDepth = SAMPLE_TEXTURE2D(_VarianceShadowMapping, sampler_VarianceShadowMapping, vsmUV_AndDepth.xy);
+
+    float Ex = vsmDepthMip.r;
+    float Ex2 = vsmDepthMip.g;
+    float o2 = Ex2 - Ex*Ex;
+    float pixelLightDepth = vsmUV_AndDepth.z;
+    //if(vsmDepth - pixelLightDepth < bis) return 1;
+    
+    float p = o2 / (o2 + pow(pixelLightDepth - Ex, 2));
+    visibility = p;
+
+    //visibility = pixelLightDepth > Ex ? 1 : 0;
+    //visibility += SAMPLE_TEXTURE2D_SHADOW(_VarianceShadowMapping, SHADOW_SAMPLER, positionSS);
+    return visibility;
+    //return float3(vsmDepth, vsmUV_AndDepth.z);
+    //return abs(o2);
+    // return (pixelLightDepth - vsmDepth.r);
+}
+
 // TODO:接合occlusion和shadow二者计算visibility
 float GetVisibility(Surface surface, Light light)
 {
-    float visibility = GetVisibilityFromShadow(surface, light);
+    //float visibility = GetVisibilityFromShadow(surface, light);
+    float visibility = GetVisibilityFromVSM(surface, light);
     #if defined(_AO_MAP)
     visibility *= surface.occlusion;
     #endif
@@ -110,6 +156,7 @@ float3 Shading(Surface surface, BRDF brdf)
     {
         Light light =  GetDirectionLight(i);
         shadingResult += GetIrradiance(surface, light) * DirectBRDF(surface, brdf, light) * GetVisibility(surface, light);
+        //shadingResult = GetVisibilityFromVSM(surface, light);
     }
     return shadingResult;
 }

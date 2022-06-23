@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using RhythmPipeline.Runtime;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -13,7 +14,8 @@ namespace RhythmPipeline.PipelineManager
         private bool _useGPUInstancing;
         private ShadowSettings _shadowSettings;
         private PostProcessingSettings _postProcessingSettings;
-        
+
+        public static Renderer[] AllRenderers;
         public RhythmPipeline(RhythmPipelineAsset pipelineAsset)
         {
             _useDynamicBatching = pipelineAsset.useDynamicBatching;
@@ -22,6 +24,7 @@ namespace RhythmPipeline.PipelineManager
             _postProcessingSettings = pipelineAsset.postProcessingSettings;
             GraphicsSettings.useScriptableRenderPipelineBatching = pipelineAsset.useSRPBatching;
             GraphicsSettings.lightsUseLinearIntensity = true;
+            AllRenderers = GameObject.FindObjectsOfType<Renderer>();
         }
         
         protected override void Render(ScriptableRenderContext context, Camera[] cameras)
