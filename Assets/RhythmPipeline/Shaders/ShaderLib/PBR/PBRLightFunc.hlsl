@@ -98,9 +98,9 @@ SAMPLER(sampler_VarianceShadowMapping);
 // TODO : 补全VSM实现
 float3 GetVSM_UV_And_Depth(float3 positionWS, Light light)
 {
-    float4 positionSS = mul(light.directionalShadowMatrix, float4(positionWS, 1.0));
-    float2 uv = positionSS.xy;
-    float depth = positionSS.z / positionSS.w;
+    float4 positionCS = mul(light.directionalShadowMatrix, float4(positionWS, 1.0));
+    float2 uv = positionCS.xy;
+    float depth = positionCS.z;
     return float3(uv, depth);
 }
 float2 GetPixelLightDepth(float3 positionWS)
@@ -108,26 +108,58 @@ float2 GetPixelLightDepth(float3 positionWS)
     
 }
 
+// 切比雪夫不等式
+float Chebychev(float o2, float avg, float t)
+{
+    return o2 / (o2 + (t-avg)*(t-avg));
+}
+float CalcuO2(float E_x, float E_x2)
+{
+    return E_x2 - E_x * E_x;
+}
+
+const int MAX_MIP_LEVEL = 9;
 float GetVisibilityFromVSM(Surface surface, Light light)
 {
     float visibility;
-    float3 samplePoint = surface.positionWS;
     float3 vsmUV_AndDepth = GetVSM_UV_And_Depth(surface.positionWS, light);
-    // 采样Mipmap得到均值
-
-    //float2 vsmDepth = SAMPLE_TEXTURE2D(_VarianceShadowMapping, sampler_VarianceShadowMapping, vsmUV_AndDepth.xy);
-
-    int mipLevel = 2;
-    float2 vsmDepthMip = SAMPLE_TEXTURE2D_LOD(_VarianceShadowMapping, sampler_VarianceShadowMapping,vsmUV_AndDepth.xy, mipLevel);
-    //float vsmDepth = SAMPLE_TEXTURE2D(_VarianceShadowMapping, sampler_VarianceShadowMapping, vsmUV_AndDepth.xy);
-
-    float Ex = vsmDepthMip.r;
-    float Ex2 = vsmDepthMip.g;
-    float o2 = Ex2 - Ex*Ex;
-    float pixelLightDepth = vsmUV_AndDepth.z;
-    //if(vsmDepth - pixelLightDepth < bis) return 1;
     
-    float p = o2 / (o2 + pow(pixelLightDepth - Ex, 2));
+    float pixelLightDepth = vsmUV_AndDepth.z;
+    float2 shadowMapUV = vsmUV_AndDepth.xy;
+    // VSSM block search, 用于确定切比雪夫在哪个mip上是准确的。
+    float2 vsmDepthMip = float2(0.0, 0.0);
+    float E_x = 0;
+    for(int i = 3; i >= 0; i--)
+    {
+        vsmDepthMip = SAMPLE_TEXTURE2D_LOD(_VarianceShadowMapping, sampler_VarianceShadowMapping, shadowMapUV, i);
+        E_x = vsmDepthMip.r;
+        if(pixelLightDepth >= E_x) break;
+    }
+
+    //vsmDepthMip = SAMPLE_TEXTURE2D_LOD(_VarianceShadowMapping, sampler_VarianceShadowMapping, shadowMapUV, 3)
+    float E_x2 = vsmDepthMip.g;
+    float o2 = CalcuO2(E_x, E_x2);
+    float p0 = Chebychev(o2, E_x, pixelLightDepth);
+    return p0;
+    
+    float zUnocc = pixelLightDepth;
+    float pUnocc = Chebychev(o2, E_x, pixelLightDepth); // 不是blocker的概率
+    float blockerAvgDepth = (E_x - pUnocc * zUnocc) / (1.0 - pUnocc);
+    blockerAvgDepth = max(0, blockerAvgDepth);
+
+    float penumbraSize = ((pixelLightDepth - blockerAvgDepth) / blockerAvgDepth) * 20.0f;
+    
+    
+    float mipLevel = clamp(log2(penumbraSize), 0.0, 7.0);
+    vsmDepthMip =  SAMPLE_TEXTURE2D_LOD(_VarianceShadowMapping, sampler_VarianceShadowMapping, shadowMapUV, mipLevel);
+    E_x = vsmDepthMip.r;
+    E_x2 = vsmDepthMip.g;
+    o2 = CalcuO2(E_x, E_x2);
+
+    // p 为shading point 深度大于平均深度（可见）的概率
+    float p = pixelLightDepth > E_x? Chebychev(o2, E_x, pixelLightDepth) : 0;
+    p = Chebychev(o2, E_x, pixelLightDepth);
+    
     visibility = p;
 
     //visibility = pixelLightDepth > Ex ? 1 : 0;

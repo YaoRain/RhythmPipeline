@@ -133,6 +133,7 @@ Shader "RhythmRP/Post/Bloom"
     {
         UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
         float texelSize = _SourceTex_TexelSize.y;
+        texelSize = 1.0 / 1024.0;
         float2 uv = input.baseUV;
 
         // Optimized bilinear 5-tap gaussian on the same-sized source (9-tap equivalent)
@@ -142,12 +143,13 @@ Shader "RhythmRP/Post/Bloom"
         half3 c3 = DecodeHDR(SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, uv + float2(0.0, texelSize * 1.38461538)));
         half3 c4 = DecodeHDR(SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, uv + float2(0.0, texelSize * 3.23076923)));
 
+        
         half3 color = c0 * 0.07027027 + c1 * 0.31621622
                     + c2 * 0.22702703
                     + c3 * 0.31621622 + c4 * 0.07027027;
-
         return EncodeHDR(color);
     }
+    
     half3 Upsample(float2 uv)
         {
             half3 highMip = DecodeHDR(SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, uv));
@@ -192,7 +194,7 @@ Shader "RhythmRP/Post/Bloom"
             #pragma vertex Vertex
             #pragma fragment Fragment
             
-            float4 Fragment(Varyings input) : SV_TARGET
+            half4 Fragment(Varyings input) : SV_TARGET
             {
                 return FragBlurV(input);
             }

@@ -8,8 +8,8 @@ public class Bloom : PostProcessingFeature
     
     private static int _bloomDstTex = Shader.PropertyToID("_BloomDstTex");
     private static int _brightAreaTex = Shader.PropertyToID("_BrightAreaTex");
-    private static int _blurVDstTex = Shader.PropertyToID("_BlurVDstTex");
-    private static int _blurDstTex = Shader.PropertyToID("_BlurDstTex");
+    public static int _blurVDstTex = Shader.PropertyToID("_BlurVDstTex");
+    public static int _blurDstTex = Shader.PropertyToID("_BlurDstTex");
     private static int _originalTex = Shader.PropertyToID("_OriginalTex");
     
     private const int BLUR_TIEMS = 5;
@@ -17,11 +17,12 @@ public class Bloom : PostProcessingFeature
     private int[] _highMipsSrc = new int[BLUR_TIEMS];
     private int[] _highMipsDst = new int[BLUR_TIEMS];
     
-    private Shader _shader = Shader.Find("RhythmRP/Post/Bloom");
-    private Material _mat;
+    public static Shader _shader = Shader.Find("RhythmRP/Post/Bloom");
+
+    public static Material _mat;
     private int _getBrightAreaPass = 0;
-    private int _blurVPass = 1;
-    private int _blurHPass = 2;
+    public static int _blurVPass = 1;
+    public static int _blurHPass = 2;
     private int _upsamplePass = 3;
     private int _bloomFinalPass = 4;
     

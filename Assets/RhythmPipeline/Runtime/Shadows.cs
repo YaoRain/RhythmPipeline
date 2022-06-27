@@ -43,7 +43,7 @@ public class Shadows
             cmd.name = "Shadows";
             cmd.BeginSample("Render Shadow Map");
             RenderDirectionalShadows();
-            RenderMainLightShadows(ShadowedDirectionalLights[0], 1024);
+            RenderVarianceShadowMapping(ShadowedDirectionalLights[0], (int)_setting.directional.atlasSize);
             
             cmd.EndSample("Render Shadow Map");
             ExecuteTempBuffer(cmd);
@@ -144,11 +144,14 @@ public class Shadows
 
     // TODO : 实现主光源VSM
     public static int _varianceShadowMapping = Shader.PropertyToID("_VarianceShadowMapping");
-    private Shader _shader = Shader.Find("RhythmRP/Rhythm_VSM_Cast");
+    private static int _sourceTex_TexelSize = Shader.PropertyToID("_SourceTex_TexelSize");
+    public static int _vsmBlurVDst = Shader.PropertyToID("_VsmBlurVDst");
+    private Shader _shader = Shader.Find("RhythmRP/Rhythm_Shadow_Cast");
     private Material _mat;
     private const string cmdName = "VSMCast";
     public static RenderTexture _vsmRT;
-    void RenderMainLightShadows(ShadowedDirectionalLight mainLight, int shadowMapSize)
+    
+    void RenderVarianceShadowMapping(ShadowedDirectionalLight mainLight, int shadowMapSize)
     {
         if (_mat == null) _mat = new Material(_shader);
         if (_vsmRT == null)
@@ -156,8 +159,9 @@ public class Shadows
             _vsmRT = new RenderTexture(shadowMapSize, shadowMapSize, 32, RenderTextureFormat.RGFloat);
             if (!_vsmRT.IsCreated())
             {
+                _vsmRT.name = "_VarianceShadowMapping";
                 _vsmRT.useMipMap = true;
-                _vsmRT.filterMode = FilterMode.Bilinear;
+                _vsmRT.filterMode = FilterMode.Trilinear;
                 _vsmRT.anisoLevel = 9;
                 _vsmRT.Create();
                 //texture.Release();
@@ -179,26 +183,30 @@ public class Shadows
         {
             if (allRenderers[i].isVisible&&allRenderers[i].shadowCastingMode == ShadowCastingMode.On)
             {
-                cmd.DrawMesh(allRenderers[i].GetComponent<MeshFilter>().sharedMesh, allRenderers[i].GetComponent<Transform>().localToWorldMatrix, _mat);
+                cmd.DrawMesh(allRenderers[i].GetComponent<MeshFilter>().sharedMesh, allRenderers[i].GetComponent<Transform>().localToWorldMatrix, _mat, 0, 1);
                 //Debug.Log("第"+i+"个"+allRenderers[i].GetComponent<MeshFilter>().mesh.name);
             }
         }
-        //cmd.Blit(sourceTexId, _toneMappingDstTex, _mat, 0);
         cmd.EndSample(bufferName);
         ExecuteTempBuffer(cmd);
-        
-        
-        // TODO : 实现对VSM的Blur
-        /*
-        cmd = CommandBufferPool.Get(cmdName);
+
+        // VSM pre filter
+        cmd=CommandBufferPool.Get(cmdName);
+        cmd.GetTemporaryRT(_vsmBlurVDst,shadowMapSize,shadowMapSize,0,FilterMode.Bilinear,RenderTextureFormat.RG32);
+        ExcuteButNotRelease(cmd);
+
+        _mat.SetVector(_sourceTex_TexelSize,  new Vector2(1.0f / shadowMapSize, 1.0f / shadowMapSize));
         cmd.BeginSample("blur vsm");
-        cmd.SetRenderTarget(_vsmRT, RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store);
-        cmd.ClearRenderTarget(true, true, Color.clear);
-        
-        
+        cmd.Blit(_vsmRT,_vsmBlurVDst,_mat,2);
         cmd.EndSample("blur vsm");
+        ExcuteButNotRelease(cmd);
+
+        cmd.BeginSample("blur vsm");
+        cmd.Blit(_vsmBlurVDst,_vsmRT,_mat,3);
+        cmd.EndSample("blur vsm");
+        ExcuteButNotRelease(cmd);
+        
         ExecuteTempBuffer(cmd);
-        */
     }
     
     void RenderReflectiveShadowMaps(int lightIndex, int tileSize)
@@ -236,17 +244,16 @@ public class Shadows
         cmd.EndSample(cmd.name);
         ExecuteTempBuffer(cmd);
     }
-    
-    void ExecuteBuffer()
-    {
-        _context.ExecuteCommandBuffer(_buffer);
-        _buffer.Clear();
-    }
-    
+
     void ExecuteTempBuffer(CommandBuffer cmd)
     {
         _context.ExecuteCommandBuffer(cmd);
         CommandBufferPool.Release(cmd);
+    }
+    void ExcuteButNotRelease(CommandBuffer cmd)
+    {
+        _context.ExecuteCommandBuffer(cmd);
+        cmd.Clear();
     }
 
     private static int _shadowStrength = Shader.PropertyToID("_ShadowStrength");
