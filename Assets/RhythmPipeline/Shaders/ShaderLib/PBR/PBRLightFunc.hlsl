@@ -129,7 +129,7 @@ float GetVisibilityFromVSM(Surface surface, Light light)
     // VSSM block search, 用于确定切比雪夫在哪个mip上是准确的。
     float2 vsmDepthMip = float2(0.0, 0.0);
     float E_x = 0;
-    for(int i = 3; i >= 0; i--)
+    for(int i = 0; i <= 1; i++)
     {
         vsmDepthMip = SAMPLE_TEXTURE2D_LOD(_VarianceShadowMapping, sampler_VarianceShadowMapping, shadowMapUV, i);
         E_x = vsmDepthMip.r;
