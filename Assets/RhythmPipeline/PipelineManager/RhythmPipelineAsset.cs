@@ -16,6 +16,8 @@ namespace RhythmPipeline.PipelineManager
         [SerializeField]
         public ShadowSettings shadowSettings = default;
         [SerializeField]
+        public GISettings giSettings = default;
+        [SerializeField]
         public PostProcessingSettings postProcessingSettings = default;
         
         protected override RenderPipeline CreatePipeline()

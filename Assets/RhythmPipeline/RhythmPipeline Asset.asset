@@ -19,4 +19,5 @@ MonoBehaviour:
     maxDistance: 600
     directional:
       atlasSize: 2048
+    shadowType: 1
   postProcessingSettings: {fileID: 11400000, guid: 97157eb3326021e45afdab26778df139, type: 2}

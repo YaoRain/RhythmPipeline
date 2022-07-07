@@ -3,7 +3,7 @@ Shader "RhythmRP/Rhythm_Shadow_Cast"
     Properties
     {
         _MainTex ("Texture", any) = "" {}
-        _BaseColor("Color", Color) = (1.0, 1.0, 1.0, 1.0)
+        _BaseColor("Color", Color) = (1.0, 1.0, 0.0, 1.0)
     }
     SubShader
     {
@@ -33,7 +33,6 @@ Shader "RhythmRP/Rhythm_Shadow_Cast"
         
         Pass
         {
-            
             Name "VSM Caster"
 
             ZWrite On
@@ -77,6 +76,25 @@ Shader "RhythmRP/Rhythm_Shadow_Cast"
             #include "Assets/RhythmPipeline/Shaders/ShaderLib/ShadowCaster.hlsl"
             
             ENDHLSL 
+        }
+        
+        Pass
+        {
+            Name "RSM Caster"
+
+            ZWrite On
+            ZTest LEqual
+            
+            HLSLPROGRAM
+            #pragma target 4.5
+            #pragma multi_compile_instancing
+            #pragma shader_feature _CLIPPING
+            
+            #pragma vertex RSM_Vertex
+            #pragma fragment RSM_Fragment
+            #include "Assets/RhythmPipeline/Shaders/ShaderLib/ShadowCaster.hlsl"
+            
+            ENDHLSL
         }
     }
 }

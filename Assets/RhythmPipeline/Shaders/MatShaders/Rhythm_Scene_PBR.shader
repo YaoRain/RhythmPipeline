@@ -49,11 +49,37 @@ Shader "RhythmRP/Rhythm_Scene_PBR"
             #pragma shader_feature _ROUGHNESS_MAP
             #pragma shader_feature _METALLIC_MAP
             #pragma shader_feature _METALLIC_MAP_WITH_GLOSS
+            #pragma shader_feature _MANY_LIGHT
+            #pragma shader_feature _VSM
+            #pragma 
             
             #pragma vertex Vertex
             #pragma fragment PBRShading
             #include "Assets/RhythmPipeline/Shaders/ShaderLib/PBR/PBRVertexShader.hlsl"
             #include "Assets/RhythmPipeline/Shaders/ShaderLib/PBR/PBRShading.hlsl"
+            
+            ENDHLSL
+        }
+        
+        Pass
+        {
+            
+            Name "ShadowCaster"
+            Tags{"LightMode" = "ShadowCaster"}
+
+            ZWrite On
+            ZTest LEqual
+            ColorMask 0
+            
+            HLSLPROGRAM
+            #pragma target 4.5
+            #pragma multi_compile_instancing
+            #pragma shader_feature _CLIPPING
+
+            
+            #pragma vertex Vertex
+            #pragma fragment Fragment
+            #include "Assets/RhythmPipeline/Shaders/ShaderLib/ShadowCaster.hlsl"
             
             ENDHLSL
         }

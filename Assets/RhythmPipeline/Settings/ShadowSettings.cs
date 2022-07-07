@@ -23,4 +23,12 @@ public class ShadowSettings
     {
         atlasSize = TextureSize._1024
     };
+
+    [System.Serializable]
+    public enum ShadowType
+    {
+        ManyLight, VSM, ESM, PCF
+    }
+
+    public ShadowType shadowType = ShadowType.VSM;
 }

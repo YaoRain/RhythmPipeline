@@ -35,18 +35,29 @@ public class Shadows
         _shadowedDirectionalLightCount = 0;
     }
 
-    public void RenderShadowMap()
+    public void Render()
     {
         if (_shadowedDirectionalLightCount > 0)
         {
             var cmd = CommandBufferPool.Get();
             cmd.name = "Shadows";
             cmd.BeginSample("Render Shadow Map");
-            RenderDirectionalShadows();
-            RenderVarianceShadowMapping(ShadowedDirectionalLights[0], (int)_setting.directional.atlasSize);
             
+            // TODO : 有空了重构下shadow的矩阵设置环节
+            Shader.DisableKeyword("_MANY_LIGHT");
+            Shader.DisableKeyword("_VSM");
+            if(_setting.shadowType == ShadowSettings.ShadowType.ManyLight) Shader.EnableKeyword("_MANY_LIGHT");
+            RenderDirectionalShadows();
+            
+            
+            if(_setting.shadowType == ShadowSettings.ShadowType.VSM)
+            {
+                Shader.EnableKeyword("_VSM");
+                RenderVarianceShadowMapping(ShadowedDirectionalLights[0], (int)_setting.directional.atlasSize);
+            }
+
             cmd.EndSample("Render Shadow Map");
-            ExecuteTempBuffer(cmd);
+            CommandHelper.ExecuteAndRelese(_context, cmd);
         }
     }
 
@@ -64,7 +75,7 @@ public class Shadows
         cmd.SetRenderTarget(_dirShadowMap, RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store);
         cmd.ClearRenderTarget(true, true, Color.clear);
         cmd.EndSample("Clear Shadow Map");
-        ExecuteTempBuffer(cmd);
+        CommandHelper.ExecuteAndRelese(_context, cmd);
 
         cmd = CommandBufferPool.Get();
         cmd.name = "Shadows";
@@ -76,7 +87,7 @@ public class Shadows
         }
         cmd.SetGlobalMatrixArray(_directionalShadowMatrices, _dirShadowMatrices);
         cmd.EndSample("Draw Directional Shadow Map");
-        ExecuteTempBuffer(cmd);
+        CommandHelper.ExecuteAndRelese(_context, cmd);
     }
 
     Matrix4x4 ConvertToAtlasMatrix(Matrix4x4 m, Vector2 offset, int spilt)
@@ -111,7 +122,7 @@ public class Shadows
         Vector2 offset = new Vector2(index%split, index/split);
         var cmd = CommandBufferPool.Get("Shadows");
         cmd.SetViewport(new Rect(offset.x * tileSize, offset.y * tileSize, tileSize, tileSize));
-        ExecuteTempBuffer(cmd);
+        CommandHelper.ExecuteAndRelese(_context, cmd);
         return offset;
     }
 
@@ -129,20 +140,35 @@ public class Shadows
         _dirShadowMatrices[lightIndex] = ConvertToAtlasMatrix(projectionMatrix * viewMatrix, offset, _split);
         var cmd = CommandBufferPool.Get("Shadows");
         cmd.SetViewProjectionMatrices(viewMatrix, projectionMatrix);
-        ExecuteTempBuffer(cmd);
+        CommandHelper.ExecuteAndRelese(_context, cmd);
+        
         // 把shadow map按投射阴影的light数量，划分 Tile就行渲染
         cmd = CommandBufferPool.Get("Shadows");
         cmd.BeginSample("Draw Shadow Map");
         cmd.SetGlobalDepthBias(90000, 0);
         cmd.EndSample("Draw Shadow Map");
-        ExecuteTempBuffer(cmd);
-        //_context.DrawShadows(ref shadowSettings);
+        CommandHelper.ExecuteAndRelese(_context, cmd);
+        _context.DrawShadows(ref shadowSettings);
         cmd = CommandBufferPool.Get("Shadows");
         cmd.SetGlobalDepthBias(0, 0);
-        ExecuteTempBuffer(cmd);
+        CommandHelper.ExecuteAndRelese(_context, cmd);
+        
+        if (_setting.shadowType == ShadowSettings.ShadowType.ManyLight)
+        {
+            
+        cmd = CommandBufferPool.Get("Shadows");
+        cmd.BeginSample("Draw Shadow Map");
+        cmd.SetGlobalDepthBias(90000, 0);
+        cmd.EndSample("Draw Shadow Map");
+        CommandHelper.ExecuteAndRelese(_context, cmd);
+        _context.DrawShadows(ref shadowSettings);
+        cmd = CommandBufferPool.Get("Shadows");
+        cmd.SetGlobalDepthBias(0, 0);
+        CommandHelper.ExecuteAndRelese(_context, cmd);
+        }
     }
 
-    // TODO : 实现主光源VSM
+    // 主光源VSM
     public static int _varianceShadowMapping = Shader.PropertyToID("_VarianceShadowMapping");
     private static int _sourceTex_TexelSize = Shader.PropertyToID("_SourceTex_TexelSize");
     public static int _vsmBlurVDst = Shader.PropertyToID("_VsmBlurVDst");
@@ -173,7 +199,7 @@ public class Shadows
         cmd.SetRenderTarget(_vsmRT, RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store);
         cmd.ClearRenderTarget(true, true, Color.clear);
         cmd.EndSample("Clear VSM");
-        ExecuteTempBuffer(cmd);
+        CommandHelper.ExecuteAndRelese(_context, cmd);
 
         cmd = CommandBufferPool.Get(cmdName);
         cmd.BeginSample(bufferName);
@@ -188,25 +214,25 @@ public class Shadows
             }
         }
         cmd.EndSample(bufferName);
-        ExecuteTempBuffer(cmd);
+        CommandHelper.ExecuteAndRelese(_context, cmd);
 
         // VSM pre filter
         cmd=CommandBufferPool.Get(cmdName);
         cmd.GetTemporaryRT(_vsmBlurVDst,shadowMapSize,shadowMapSize,0,FilterMode.Bilinear,RenderTextureFormat.RG32);
-        ExcuteButNotRelease(cmd);
+        CommandHelper.ExcuteButNotRelease(_context, cmd);
 
         _mat.SetVector(_sourceTex_TexelSize,  new Vector2(1.0f / shadowMapSize, 1.0f / shadowMapSize));
         cmd.BeginSample("blur vsm");
         cmd.Blit(_vsmRT,_vsmBlurVDst,_mat,2);
         cmd.EndSample("blur vsm");
-        ExcuteButNotRelease(cmd);
+        CommandHelper.ExcuteButNotRelease(_context, cmd);
 
         cmd.BeginSample("blur vsm");
         cmd.Blit(_vsmBlurVDst,_vsmRT,_mat,3);
         cmd.EndSample("blur vsm");
-        ExcuteButNotRelease(cmd);
+        CommandHelper.ExcuteButNotRelease(_context, cmd);
         
-        ExecuteTempBuffer(cmd);
+        CommandHelper.ExecuteAndRelese(_context, cmd);
     }
     
     void RenderReflectiveShadowMaps(int lightIndex, int tileSize)
@@ -222,17 +248,17 @@ public class Shadows
         _dirShadowMatrices[lightIndex] = ConvertToAtlasMatrix(projectionMatrix * viewMatrix, offset, _split);
         var cmd = CommandBufferPool.Get("Shadows");
         cmd.SetViewProjectionMatrices(viewMatrix, projectionMatrix);
-        ExecuteTempBuffer(cmd);
+        CommandHelper.ExecuteAndRelese(_context, cmd);
         // 把shadow map按投射阴影的light数量，划分 Tile就行渲染
         cmd = CommandBufferPool.Get("Shadows");
         cmd.BeginSample("Draw Shadow Map");
         cmd.SetGlobalDepthBias(90000, 0);
         cmd.EndSample("Draw Shadow Map");
-        ExecuteTempBuffer(cmd);
+        CommandHelper.ExecuteAndRelese(_context, cmd);
         _context.DrawShadows(ref shadowSettings);
         cmd = CommandBufferPool.Get("Shadows");
         cmd.SetGlobalDepthBias(0, 0);
-        ExecuteTempBuffer(cmd);
+        CommandHelper.ExecuteAndRelese(_context, cmd);
     }
     
     public void Cleanup()
@@ -242,18 +268,7 @@ public class Shadows
         cmd.BeginSample(cmd.name);
         cmd.ReleaseTemporaryRT(_dirShadowMap);
         cmd.EndSample(cmd.name);
-        ExecuteTempBuffer(cmd);
-    }
-
-    void ExecuteTempBuffer(CommandBuffer cmd)
-    {
-        _context.ExecuteCommandBuffer(cmd);
-        CommandBufferPool.Release(cmd);
-    }
-    void ExcuteButNotRelease(CommandBuffer cmd)
-    {
-        _context.ExecuteCommandBuffer(cmd);
-        cmd.Clear();
+        CommandHelper.ExecuteAndRelese(_context, cmd);
     }
 
     private static int _shadowStrength = Shader.PropertyToID("_ShadowStrength");
@@ -267,7 +282,7 @@ public class Shadows
                 {visibleLightIndex = visibleLightIndex};
             var cmd = CommandBufferPool.Get("Shadows");
             cmd.SetGlobalFloat(_shadowStrength, light.shadowStrength);
-            ExecuteTempBuffer(cmd);
+            CommandHelper.ExecuteAndRelese(_context, cmd);
         }
 
         _split = _shadowedDirectionalLightCount <= 1 ? 1 : 2;

@@ -13,6 +13,7 @@ namespace RhythmPipeline.PipelineManager
         private bool _useDynamicBatching;
         private bool _useGPUInstancing;
         private ShadowSettings _shadowSettings;
+        private GISettings _giSettings;
         private PostProcessingSettings _postProcessingSettings;
 
         public static Renderer[] AllRenderers;
@@ -21,6 +22,7 @@ namespace RhythmPipeline.PipelineManager
             _useDynamicBatching = pipelineAsset.useDynamicBatching;
             _useGPUInstancing = pipelineAsset.useGPUInstancing;
             _shadowSettings = pipelineAsset.shadowSettings;
+            _giSettings = pipelineAsset.giSettings;
             _postProcessingSettings = pipelineAsset.postProcessingSettings;
             GraphicsSettings.useScriptableRenderPipelineBatching = pipelineAsset.useSRPBatching;
             GraphicsSettings.lightsUseLinearIntensity = true;
@@ -30,7 +32,7 @@ namespace RhythmPipeline.PipelineManager
         protected override void Render(ScriptableRenderContext context, Camera[] cameras)
         {
             _forwardRender.SetPerFrame(ref context, _useDynamicBatching, _useGPUInstancing, _shadowSettings);
-            _lighting.SetPerFrame(ref context, _shadowSettings);
+            _lighting.SetPerFrame(ref context, _shadowSettings, _giSettings);
             
             // notice: 不允许使用不同相机渲染同一个frame buffer
             for(int i = 0; i < cameras.Length; i++)

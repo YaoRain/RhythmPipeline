@@ -10,6 +10,7 @@ public class Lighting
     private ScriptableRenderContext _context;
     private CullingResults _cullingResults;
     private Shadows _shadows = new Shadows();
+    private RSM _rsm = new RSM();
     
     private const string bufferName = "Lighting";
     private CommandBuffer _buffer = new CommandBuffer()
@@ -27,10 +28,11 @@ public class Lighting
     private static Vector4[] _dirLightRadiantItensitys = new Vector4[maxDirLightCount];
     private static Vector4[] _dirLightDirections = new Vector4[maxDirLightCount];
 
-    public void SetPerFrame(ref ScriptableRenderContext context, ShadowSettings shadowSettings)
+    public void SetPerFrame(ref ScriptableRenderContext context, ShadowSettings shadowSettings, GISettings giSettings )
     {
         _context = context;
         _shadows.SetPerFrame(ref context, shadowSettings);
+        _rsm.SetPerFrame(ref context, giSettings, (int)shadowSettings.directional.atlasSize);
     }
     
     public void SetPerCamera(CullingResults cullingResults)
@@ -42,7 +44,8 @@ public class Lighting
         cmd.name = "Light";
         cmd.BeginSample("Set Per Camera");
         SetupDirectionalLights();
-        _shadows.RenderShadowMap();
+        _shadows.Render();
+        _rsm.Render();
         cmd.EndSample("Set Per Camera");
         ExecuteTempBuffer(cmd);
         _context.Submit();
