@@ -52,6 +52,9 @@ namespace RhythmPipeline.Runtime
             var cmd = CommandBufferPool.Get(_camera.name);
             cmd.BeginSample("Set Render State");
             Shader.SetGlobalTexture(Shadows._varianceShadowMapping, Shadows._vsmRT);
+            Shader.SetGlobalTexture(RSM._worldPos, RSM._rsmTargets[0]);
+            Shader.SetGlobalTexture(RSM._flux, RSM._rsmTargets[1]);
+            Shader.SetGlobalTexture(RSM._worldNormal, RSM._rsmTargets[2]);
             cmd.EndSample("Set Render State");
         }
         private void DrawOpaque()

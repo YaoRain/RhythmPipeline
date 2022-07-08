@@ -3,7 +3,7 @@ Shader "RhythmRP/Rhythm_Shadow_Cast"
     Properties
     {
         _MainTex ("Texture", any) = "" {}
-        _BaseColor("Color", Color) = (1.0, 1.0, 0.0, 1.0)
+        // _BaseColor("Color", Color) = (1.0, 1.0, 0.0, 1.0)
     }
     SubShader
     {

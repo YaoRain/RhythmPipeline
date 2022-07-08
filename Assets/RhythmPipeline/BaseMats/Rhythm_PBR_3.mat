@@ -7,7 +7,7 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: Rhythm_PBR_2
+  m_Name: Rhythm_PBR_3
   m_Shader: {fileID: 4800000, guid: b35c2170f56bc524fad5c7205fcfc002, type: 3}
   m_ValidKeywords: []
   m_InvalidKeywords: []
@@ -94,7 +94,7 @@ Material:
     - _useMatellicMap: 0
     - _useRoughnessMap: 0
     m_Colors:
-    - _BaseColor: {r: 0, g: 0, b: 1, a: 1}
+    - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
     - _Color: {r: 1, g: 1, b: 1, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
   m_BuildTextureStacks: []

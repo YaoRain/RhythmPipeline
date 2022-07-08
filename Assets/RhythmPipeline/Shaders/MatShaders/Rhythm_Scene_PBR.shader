@@ -51,6 +51,7 @@ Shader "RhythmRP/Rhythm_Scene_PBR"
             #pragma shader_feature _METALLIC_MAP_WITH_GLOSS
             #pragma shader_feature _MANY_LIGHT
             #pragma shader_feature _VSM
+            #pragma shader_feature _RSM
             #pragma 
             
             #pragma vertex Vertex

@@ -95,17 +95,13 @@ float GetVisibilityFromShadow(Surface surface, Light light)
 
 TEXTURE2D(_VarianceShadowMapping);
 SAMPLER(sampler_VarianceShadowMapping);
-// TODO : 补全VSM实现
+
 float3 GetVSM_UV_And_Depth(float3 positionWS, Light light)
 {
     float4 positionCS = mul(light.directionalShadowMatrix, float4(positionWS, 1.0));
     float2 uv = positionCS.xy;
     float depth = positionCS.z;
     return float3(uv, depth);
-}
-float2 GetPixelLightDepth(float3 positionWS)
-{
-    
 }
 
 // 切比雪夫不等式
@@ -119,6 +115,7 @@ float CalcuO2(float E_x, float E_x2)
 }
 
 const int MAX_MIP_LEVEL = 9;
+// TODO : 实现VSSM
 float GetVisibilityFromVSM(Surface surface, Light light)
 {
     float visibility;
@@ -139,8 +136,10 @@ float GetVisibilityFromVSM(Surface surface, Light light)
     //vsmDepthMip = SAMPLE_TEXTURE2D_LOD(_VarianceShadowMapping, sampler_VarianceShadowMapping, shadowMapUV, 3)
     float E_x2 = vsmDepthMip.g;
     float o2 = CalcuO2(E_x, E_x2);
+    o2 = abs(o2) < 0.000001 ? 0.000001 : o2;
     float p0 = Chebychev(o2, E_x, pixelLightDepth);
-    return p0;
+    //float p0 = pixelLightDepth > E_x? Chebychev(o2, E_x, pixelLightDepth) : 0;
+    return max(0.0, min(p0, 1.0));
     
     float zUnocc = pixelLightDepth;
     float pUnocc = Chebychev(o2, E_x, pixelLightDepth); // 不是blocker的概率
@@ -185,13 +184,64 @@ float GetVisibility(Surface surface, Light light)
     return visibility;
 }
 
+TEXTURE2D(_WorldPos);
+SAMPLER(sampler_WorldPos);
+TEXTURE2D(_Flux);
+SAMPLER(sampler_Flux);
+TEXTURE2D(_WorldNormal);
+SAMPLER(sampler_WorldNormal);
+#define _RsmSampleCount 64
+
+#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Sampling/Hammersley.hlsl"
+// TODO : 有空处理下自照亮问题
+float3 RSMSading(Surface surface, Light light)
+{
+    float3 worldPos = surface.positionWS;
+    float3 N = surface.normal;
+    float3 indirect = float3(0, 0, 0);
+    float3 rec_uv = mul(light.directionalShadowMatrix, float4(worldPos, 1.0)).xyz;
+    
+    float3 vsmUV_AndDepth = GetVSM_UV_And_Depth(surface.positionWS, light);
+    float pixelLightDepth = vsmUV_AndDepth.z;
+    
+    for(uint idx=0;idx<_RsmSampleCount;idx++)
+    {
+        float2 Xi = Hammersley2d(idx, _RsmSampleCount);
+        float ss1 = Xi.x*sin(Xi.y*2.0*3.1415926);
+        float ss2 = Xi.x*cos(Xi.y*2.0*3.1415926);
+        float2 sample_coord=rec_uv + float2(ss1,ss2) * (1.0/1024.0)*10;
+        float weight=Xi.x*Xi.y;
+        #if defined(_VSM)
+            float vsmDepth = SAMPLE_TEXTURE2D_LOD(_VarianceShadowMapping, sampler_VarianceShadowMapping, sample_coord, 0);
+            if(abs(vsmDepth - pixelLightDepth) < 0.005)
+            {
+                continue;
+            }
+        #endif
+        float3 vpl_normal=normalize(SAMPLE_TEXTURE2D(_WorldNormal,sampler_WorldNormal,sample_coord).xyz);
+        float3 vpl_worldPos=SAMPLE_TEXTURE2D(_WorldPos,sampler_WorldPos,sample_coord).xyz;
+        float3 vpl_flux=SAMPLE_TEXTURE2D(_Flux,sampler_Flux,sample_coord);
+
+        float3 indirect_result = (vpl_flux*max(0, dot(vpl_normal, worldPos-vpl_worldPos))*max(0, dot(N, vpl_worldPos-worldPos)))/pow(length(worldPos-vpl_worldPos),2.0);
+        indirect_result*=(weight);
+        indirect+=indirect_result;
+    }
+    
+    return indirect;
+}
+
 float3 Shading(Surface surface, BRDF brdf)
 {
     float3 shadingResult = 0;
     for(int i = 0; i < _DirectionalLightCount; i++)
     {
         Light light =  GetDirectionLight(i);
-        shadingResult += GetIrradiance(surface, light) * DirectBRDF(surface, brdf, light) * GetVisibility(surface, light);
+        float3 directLightingResult = GetIrradiance(surface, light) * DirectBRDF(surface, brdf, light) * GetVisibility(surface, light);
+        float3 indirectLightingResult = float3(0, 0, 0);
+        #if defined(_RSM)
+        indirectLightingResult = RSMSading(surface, light) ;//* DirectBRDF(surface, brdf, light);
+        #endif
+        shadingResult += directLightingResult + indirectLightingResult;
     }
     return shadingResult;
 }

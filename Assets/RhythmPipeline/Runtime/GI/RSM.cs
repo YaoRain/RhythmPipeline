@@ -19,9 +19,11 @@ public class RSM
         _settings = giSettings;
         _rsmSize = rsmSize;
     }
-    
-    
-    private static RenderTexture[] _rsmTargets = new RenderTexture[3];
+
+    public static int _worldPos = Shader.PropertyToID("_WorldPos");
+    public static int _flux = Shader.PropertyToID("_Flux");
+    public static int _worldNormal = Shader.PropertyToID("_WorldNormal");
+    public static RenderTexture[] _rsmTargets = new RenderTexture[3];
     private static RenderTargetIdentifier[] _rsmTargetIdentifiers = new RenderTargetIdentifier[3];
 
     private bool _isInit = false;
@@ -63,10 +65,9 @@ public class RSM
     }
     
     private static int _rsmMatrix = Shader.PropertyToID("_RsmMatrix");
-    private static Matrix4x4 _rsmMatrixM = new Matrix4x4();
+    //private static Matrix4x4 _rsmMatrixM = new Matrix4x4();
     
     private static int _reflectiveShadowMap = Shader.PropertyToID("_ReflectiveShadowMap");
-    //private static int _BaseColor = Shader.PropertyToID()
     private Shader _shader = Shader.Find("RhythmRP/Rhythm_Shadow_Cast");
     private Material _mat;
     private const string cmdName = "RSMCast";
@@ -78,6 +79,9 @@ public class RSM
         SetRenderTarget();
         if (_mat == null) _mat = new Material(_shader);
         
+        //Shader.DisableKeyword("_RSM");
+        Shader.EnableKeyword("_RSM");
+        
         CommandBuffer cmd = CommandBufferPool.Get(bufferName);
         cmd.BeginSample("Render RSM");
         var allRenderers = RhythmPipeline.PipelineManager.RhythmPipeline.AllRenderers;
@@ -85,21 +89,22 @@ public class RSM
         {
             if (allRenderers[i].isVisible&&allRenderers[i].shadowCastingMode == ShadowCastingMode.On)
             {
-                var color = allRenderers[i].materials[0].GetColor("_BaseColor");
-                // Debug.LogError(color);
-                CommandBuffer cmdT = CommandBufferPool.Get();
-                //allRenderers[i].materials[0].SetColor("_BaseColor", color);
-                // cmdT.SetGlobalConstantBuffer("UnityPerMaterial");
-                cmdT.SetGlobalTexture("_MainTex", allRenderers[i].materials[0].GetTexture("_BaseMap"));
-                CommandHelper.ExcuteButNotRelease(_context, cmdT);
+                var meshMat = allRenderers[i].materials[0];
+                var color = meshMat.GetColor("_BaseColor");
+                cmd.SetGlobalColor("_BaseColor", color);
+                cmd.SetGlobalTexture("_MainTex", meshMat.GetTexture("_BaseMap"));
                 cmd.DrawMesh(allRenderers[i].GetComponent<MeshFilter>().sharedMesh, allRenderers[i].GetComponent<Transform>().localToWorldMatrix, _mat, 0, 4);
-                CommandHelper.ExecuteAndRelese(_context, cmdT);
                 //Debug.Log("第"+i+"个"+allRenderers[i].GetComponent<MeshFilter>().mesh.name);
             }
         }
         
         cmd.EndSample("Render RSM");
         CommandHelper.ExecuteAndRelese(_context, cmd);
+    }
+
+    public void CleanUp()
+    {
+        
     }
     
 }

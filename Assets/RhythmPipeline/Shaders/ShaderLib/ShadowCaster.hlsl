@@ -6,6 +6,7 @@
 TEXTURE2D(_MainTex);
 SAMPLER(sampler_MainTex);
 
+/* Shadow Map Shaders */
 Varyings Vertex(Attributes input)
 {
     Varyings output;
@@ -39,6 +40,8 @@ void Fragment(Varyings input)
     #endif
 }
 
+
+/* VSM Shaders */
 Varyings VSM_Vertex(Attributes input)
 {
     Varyings output;
@@ -66,72 +69,6 @@ float2 VSM_Fragment(Varyings input) : SV_TARGET
     float depth = input.positionCS.z;
     return float2(depth, depth*depth);
 }
-
-struct RSM_Varings
-{
-    float4 positionCS : SV_POSITION;
-    float3 worldPos : TEXCOORD0;
-    float3 worldNormal : TEXCOORD1;
-    float2 baseUV : VAR_BASE_UV;
-    UNITY_VERTEX_INPUT_INSTANCE_ID   
-};
-RSM_Varings RSM_Vertex(Attributes input)
-{
-    RSM_Varings output;
-    UNITY_SETUP_INSTANCE_ID(input);
-    UNITY_TRANSFER_INSTANCE_ID(input, output);
-    
-    output.worldNormal = TransformObjectToWorldNormal (input.normal);
-    output.worldPos = TransformObjectToWorld(input.positionOS);
-    output.positionCS = TransformObjectToHClip(input.positionOS);
-    float4 baseST = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _BaseMap_ST);
-    output.baseUV = input.baseUV * baseST.xy + baseST.zw;
-    return output;
-}
-
-struct RSMOutput
-{
-    half3 worldPos : SV_Target0;
-    half3 flux : SV_Target1;
-    half3 worldNormal : SV_Target2;
-};
-
-
-struct Light
-{
-    float3 radiantItensity;
-    float3 direction;
-    float4x4 directionalShadowMatrix;
-};
-#define MAX_DIRECTIONAL_LIGHT_COUNT 4
-CBUFFER_START(_CustomLight)
-int _DirectionalLightCount;
-float4 _DirectionalLightRadiantItensitys[MAX_DIRECTIONAL_LIGHT_COUNT];
-float4 _DirectionalLightDirections[MAX_DIRECTIONAL_LIGHT_COUNT];
-float4x4 _DirectionalShadowMatrices[MAX_DIRECTIONAL_LIGHT_COUNT];
-float _ShadowStrength;
-CBUFFER_END
-Light GetDirectionLight(int index)
-{
-    Light light;
-    light.radiantItensity = _DirectionalLightRadiantItensitys[index];
-    light.direction = _DirectionalLightDirections[index];
-    light.directionalShadowMatrix = _DirectionalShadowMatrices[index];
-    return light;
-}
-
-RSMOutput RSM_Fragment(RSM_Varings input) : SV_TARGET
-{
-    
-    RSMOutput o;
-    o.worldPos = input.worldPos;
-    float3 mainTex = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.baseUV).rgb;
-    Light light = GetDirectionLight(0);
-    o.flux = mainTex * saturate(dot(input.worldNormal, light.direction)) * light.radiantItensity * mainTex * _BaseColor;
-    o.worldNormal = input.worldNormal;
-    return  o;
-}
-
 
 float2 _SourceTex_TexelSize;
 float2 FragBlurV(Varyings input) : SV_TARGET
@@ -180,5 +117,67 @@ float2 FragBlurH(Varyings input) : SV_TARGET
 }
 
 
+/* RSM Shaders */
+struct RSM_Varings
+{
+    float4 positionCS : SV_POSITION;
+    float3 worldPos : TEXCOORD0;
+    float3 worldNormal : TEXCOORD1;
+    float2 baseUV : VAR_BASE_UV;
+    UNITY_VERTEX_INPUT_INSTANCE_ID   
+};
+RSM_Varings RSM_Vertex(Attributes input)
+{
+    RSM_Varings output;
+    UNITY_SETUP_INSTANCE_ID(input);
+    UNITY_TRANSFER_INSTANCE_ID(input, output);
+    
+    output.worldNormal = TransformObjectToWorldNormal (input.normal);
+    output.worldPos = TransformObjectToWorld(input.positionOS);
+    output.positionCS = TransformObjectToHClip(input.positionOS);
+    float4 baseST = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _BaseMap_ST);
+    output.baseUV = input.baseUV * baseST.xy + baseST.zw;
+    return output;
+}
+
+struct Light
+{
+    float3 radiantItensity;
+    float3 direction;
+    float4x4 directionalShadowMatrix;
+};
+#define MAX_DIRECTIONAL_LIGHT_COUNT 4
+CBUFFER_START(_CustomLight)
+int _DirectionalLightCount;
+float4 _DirectionalLightRadiantItensitys[MAX_DIRECTIONAL_LIGHT_COUNT];
+float4 _DirectionalLightDirections[MAX_DIRECTIONAL_LIGHT_COUNT];
+float4x4 _DirectionalShadowMatrices[MAX_DIRECTIONAL_LIGHT_COUNT];
+float _ShadowStrength;
+CBUFFER_END
+Light GetDirectionLight(int index)
+{
+    Light light;
+    light.radiantItensity = _DirectionalLightRadiantItensitys[index];
+    light.direction = _DirectionalLightDirections[index];
+    light.directionalShadowMatrix = _DirectionalShadowMatrices[index];
+    return light;
+}
+struct RSMOutput
+{
+    half3 worldPos : SV_Target0;
+    half3 flux : SV_Target1;
+    half3 worldNormal : SV_Target2;
+};
+RSMOutput RSM_Fragment(RSM_Varings input) : SV_TARGET
+{
+    
+    RSMOutput o;
+    o.worldPos = input.worldPos;
+    float3 mainTex = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.baseUV).rgb;
+    Light light = GetDirectionLight(0);
+    o.flux =  saturate(dot(input.worldNormal, light.direction)) * light.radiantItensity * mainTex * _BaseColor;
+    o.worldNormal = normalize(input.worldNormal);
+    return  o;
+}
 
 #endif
