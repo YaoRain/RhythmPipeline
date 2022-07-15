@@ -55,10 +55,33 @@ public class RSM
     private static int _rsmDepth = Shader.PropertyToID("_RsmDepth");
     private void SetRenderTarget()
     {
+        RenderBufferLoadAction[] loadActions = new RenderBufferLoadAction[3]
+        {
+            RenderBufferLoadAction.DontCare,
+            RenderBufferLoadAction.DontCare,
+            RenderBufferLoadAction.DontCare
+        };
+        RenderBufferStoreAction[] storeActions = new RenderBufferStoreAction[3]
+        {
+            RenderBufferStoreAction.Store,
+            RenderBufferStoreAction.Store,
+            RenderBufferStoreAction.Store,
+        };
+        RenderBufferLoadAction depthLoad = RenderBufferLoadAction.DontCare;
+        RenderBufferStoreAction depthStore = RenderBufferStoreAction.DontCare;
+
+        RenderTargetBinding binding = new RenderTargetBinding();
+        binding.colorRenderTargets = _rsmTargetIdentifiers;
+        binding.depthRenderTarget = _rsmDepth;
+        binding.colorLoadActions = loadActions;
+        binding.colorStoreActions = storeActions;
+        binding.depthLoadAction = depthLoad;
+        binding.depthStoreAction = depthStore;
+        
         CommandBuffer cmd = CommandBufferPool.Get(bufferName);
         cmd.BeginSample("Set RSM Target");
         cmd.GetTemporaryRT(_rsmDepth, _rsmSize, _rsmSize, 32, FilterMode.Bilinear, RenderTextureFormat.Depth);
-        cmd.SetRenderTarget(_rsmTargetIdentifiers, _rsmDepth);
+        cmd.SetRenderTarget(binding);
         cmd.ClearRenderTarget(true, true, Color.clear);
         cmd.EndSample("Set RSM Target");
         CommandHelper.ExecuteAndRelese(_context, cmd);

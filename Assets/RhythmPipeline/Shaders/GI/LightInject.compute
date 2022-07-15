@@ -1,0 +1,24 @@
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel LIGHT_INJECT
+
+// Create a RenderTexture with enableRandomWrite flag and set it
+// with cs.SetTexture
+//RWTexture2D<float4> Result;
+Texture2D<float3> _WorldPos;
+Texture2D<float3> _Flux;
+Texture2D<float3> _WorldNormal;
+RWTexture3D<float3> LpvTex;
+
+// TODO : 只能采样到WorldPos
+#define RSM_SIZE 2048
+[numthreads(1,1,1)]
+void LIGHT_INJECT (uint3 id : SV_DispatchThreadID)
+{
+    // TODO: insert actual code here!
+    
+    //Result[id.xy] = float4(id.x & id.y, (id.x & 15)/15.0, (id.y & 15)/15.0, 0.0);
+    float3 worldPos = _WorldPos[uint2(RSM_SIZE* id.x/2, RSM_SIZE * id.y /2 )];//float3(1.0, 1.0, 0.0);
+    float3 flux = _Flux[uint2(RSM_SIZE* id.x/2, RSM_SIZE * id.y /2 )];//float3(1.0, 1.0, 0.0);
+    float3 worldNormal = _WorldNormal[uint2(RSM_SIZE* id.x/2, RSM_SIZE * id.y /2 )];//float3(1.0, 1.0, 0.0);
+    LpvTex[id.xyz] = worldNormal;
+}

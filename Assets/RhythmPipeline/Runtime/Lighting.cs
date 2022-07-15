@@ -11,6 +11,7 @@ public class Lighting
     private CullingResults _cullingResults;
     private Shadows _shadows = new Shadows();
     private RSM _rsm = new RSM();
+    private LPV _lpv = new LPV();
     
     private const string bufferName = "Lighting";
     private CommandBuffer _buffer = new CommandBuffer()
@@ -33,6 +34,7 @@ public class Lighting
         _context = context;
         _shadows.SetPerFrame(ref context, shadowSettings);
         _rsm.SetPerFrame(ref context, giSettings, (int)shadowSettings.directional.atlasSize);
+        _lpv.SetPerFrame(ref context);
     }
     
     public void SetPerCamera(CullingResults cullingResults)
@@ -40,12 +42,12 @@ public class Lighting
         _cullingResults = cullingResults;
         _shadows.SetPerCamera(cullingResults);
 
-        var cmd = CommandBufferPool.Get();
-        cmd.name = "Light";
+        var cmd = CommandBufferPool.Get(bufferName);
         cmd.BeginSample("Set Per Camera");
         SetupDirectionalLights();
         _shadows.Render();
         _rsm.Render();
+        _lpv.CreateLPV();
         cmd.EndSample("Set Per Camera");
         ExecuteTempBuffer(cmd);
         _context.Submit();

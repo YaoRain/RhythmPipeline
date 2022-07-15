@@ -17,6 +17,7 @@ namespace RhythmPipeline.PipelineManager
         private PostProcessingSettings _postProcessingSettings;
 
         public static Renderer[] AllRenderers;
+        public static GameObject LPVBOX;
         public RhythmPipeline(RhythmPipelineAsset pipelineAsset)
         {
             _useDynamicBatching = pipelineAsset.useDynamicBatching;
@@ -27,6 +28,7 @@ namespace RhythmPipeline.PipelineManager
             GraphicsSettings.useScriptableRenderPipelineBatching = pipelineAsset.useSRPBatching;
             GraphicsSettings.lightsUseLinearIntensity = true;
             AllRenderers = GameObject.FindObjectsOfType<Renderer>();
+            LPVBOX = GameObject.Find("LightPropagationVolumes");
         }
         
         protected override void Render(ScriptableRenderContext context, Camera[] cameras)

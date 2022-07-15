@@ -191,7 +191,7 @@ SAMPLER(sampler_Flux);
 TEXTURE2D(_WorldNormal);
 SAMPLER(sampler_WorldNormal);
 #define _RsmSampleCount 64
-
+#define _RsmSize 2048.0
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Sampling/Hammersley.hlsl"
 // TODO : 有空处理下自照亮问题
 float3 RSMSading(Surface surface, Light light)
@@ -209,7 +209,7 @@ float3 RSMSading(Surface surface, Light light)
         float2 Xi = Hammersley2d(idx, _RsmSampleCount);
         float ss1 = Xi.x*sin(Xi.y*2.0*3.1415926);
         float ss2 = Xi.x*cos(Xi.y*2.0*3.1415926);
-        float2 sample_coord=rec_uv + float2(ss1,ss2) * (1.0/1024.0)*10;
+        float2 sample_coord=rec_uv + float2(ss1,ss2) * (1.0/_RsmSize)*10;
         float weight=Xi.x*Xi.y;
         #if defined(_VSM)
             float vsmDepth = SAMPLE_TEXTURE2D_LOD(_VarianceShadowMapping, sampler_VarianceShadowMapping, sample_coord, 0);
