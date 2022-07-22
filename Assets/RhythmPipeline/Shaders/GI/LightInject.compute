@@ -7,18 +7,44 @@
 Texture2D<float3> _WorldPos;
 Texture2D<float3> _Flux;
 Texture2D<float3> _WorldNormal;
-RWTexture3D<float3> LpvTex;
 
-// TODO : 只能采样到WorldPos
+RWTexture3D<float3> LpvTexR;
+RWTexture3D<float3> LpvTexG;
+RWTexture3D<float3> LpvTexB;
+
+#define SH_C0 0.282094792f // 1 / 2sqrt(pi)
+#define SH_C1 0.488602512f // sqrt(3/pi) / 2
+
+#define SH_cosLobe_C0 0.886226925f // sqrt(pi)/2 
+#define SH_cosLobe_C1 1.02332671f // sqrt(pi/3) 
+
+float4 evalSH_direct(float3 dir) {	
+    return float4(SH_C0, -SH_C1 * dir.y, SH_C1 * dir.z, -SH_C1 * dir.x);
+}
+
+float3 AABB_MIN;
+float3 CELL_SIZE;
+float4x4 DIRECRTIONAL_SHADOW_MATRIX;
+
+#include "Assets/RhythmPipeline/Shaders/ShaderLib/PBR/PBRStruct.hlsl"
 #define RSM_SIZE 2048
+#define CELL_SIZE float3(8.0, 8.0, 8.0)
 [numthreads(1,1,1)]
 void LIGHT_INJECT (uint3 id : SV_DispatchThreadID)
 {
     // TODO: insert actual code here!
-    
+    float3 cellWorldPos = AABB_MIN + CELL_SIZE * 0.5 + CELL_SIZE * id;
+    float3 rec_uv = mul(_DirectionalShadowMatrices[0], float4(cellWorldPos, 1.0)).xyz;
     //Result[id.xy] = float4(id.x & id.y, (id.x & 15)/15.0, (id.y & 15)/15.0, 0.0);
-    float3 worldPos = _WorldPos[uint2(RSM_SIZE* id.x/2, RSM_SIZE * id.y /2 )];//float3(1.0, 1.0, 0.0);
-    float3 flux = _Flux[uint2(RSM_SIZE* id.x/2, RSM_SIZE * id.y /2 )];//float3(1.0, 1.0, 0.0);
-    float3 worldNormal = _WorldNormal[uint2(RSM_SIZE* id.x/2, RSM_SIZE * id.y /2 )];//float3(1.0, 1.0, 0.0);
-    LpvTex[id.xyz] = worldNormal;
+    float2 sample_coord_f = rec_uv.xy; //+ float2(ss1,ss2) * (1.0/_RsmSize)*10;
+    uint2 sample_coord = sample_coord_f * RSM_SIZE;
+    //uint2 sample_coord = uint2(RSM_SIZE* id.x/CELL_SIZE, RSM_SIZE * id.y /CELL_SIZE);
+    
+    float3 worldPos = _WorldPos[sample_coord];//float3(1.0, 1.0, 0.0);
+    float3 flux = _Flux[sample_coord];//float3(1.0, 1.0, 0.0);
+    float3 worldNormal = _WorldNormal[sample_coord];//float3(1.0, 1.0, 0.0);
+    
+    LpvTexR[id.xyz] = worldPos;
+    LpvTexG[id.xyz] = flux;
+    LpvTexB[id.xyz] = worldNormal;
 }
